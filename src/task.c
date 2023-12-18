@@ -45,6 +45,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (N < 28) {
+        printf("Too small number. MIN = 28.");
+        return 0;
+    }
+
     
     int* numbers = (int*) malloc (sizeof(int) * N+1);
 
@@ -83,8 +88,11 @@ int main(int argc, char* argv[]) {
         
     }
 
-    for (int i = 0;i<count;i++) {
-        printf("%d ", primes[i]);
+    if (count <= 30) {
+        printf("primes: ");
+        for (int i = 0;i<count;i++) {
+            printf("%d ", primes[i]);
+        }
     }
 
     Result result = find_max(primes, count, N);
@@ -93,7 +101,7 @@ int main(int argc, char* argv[]) {
 
     printf("\n---------------Output----------------\n");
 
-    printf("result:\nmax - %d\na - %d\nb - %d\nc - %d\n", result.max, result.a, result.b, result.c);
+    printf("%d^2 + %d^3 + %d^4 = %d\n", result.a, result.b, result.c, result.max);
     printf("Time, sec: %lf\n", finish - start);
     
     free(numbers);
