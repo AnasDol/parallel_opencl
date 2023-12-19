@@ -2,7 +2,6 @@
 #include <stdio.h>
 
 #define MAX_SOURCE_SIZE (0x100000)
-#define ARRAY_SIZE 10
 
 int main() {
 
@@ -43,50 +42,18 @@ int main() {
     // Создание командной очереди
     cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
 
-    int count = 10;
-    int width = 3;
-    int* comb = (int*) malloc (sizeof(int) * count * width);
-    comb[0 * width + 1] = 2;
-    comb[0 * width + 0] = 2; 
-    comb[0 * width + 2] = 2;
+    int N = 30;
 
-    comb[1 * width + 0] = 2;
-    comb[1 * width + 1] = 2;
-    comb[1 * width + 2] = 3;
+    int count = 4;
+    int* primes = (int*) malloc (sizeof(int) * count);
+    primes[0] = 2;
+    primes[1] = 3;
+    primes[2] = 5;
+    primes[3] = 7;
+    cl_mem primes_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count, primes, NULL);
 
-    comb[2 * width + 0] = 2;
-    comb[2 * width + 1] = 2;
-    comb[2 * width + 2] = 5;
-
-    comb[3 * width + 0] = 2; 
-    comb[3 * width + 1] = 3;
-    comb[3 * width + 2] = 2;
-
-    comb[4 * width + 0] = 2;
-    comb[4 * width + 1] = 3;
-    comb[4 * width + 2] = 3;
-
-    comb[5 * width + 0] = 2;
-    comb[5 * width + 1] = 3;
-    comb[5 * width + 2] = 5;
-
-    comb[6 * width + 0] = 2; 
-    comb[6 * width + 1] = 5;
-    comb[6 * width + 2] = 2;
-
-    comb[7 * width + 0] = 2;
-    comb[7 * width + 1] = 5;
-    comb[7 * width + 2] = 3;
-
-    comb[8 * width + 0] = 2;
-    comb[8 * width + 1] = 5;
-    comb[8 * width + 2] = 5;
-
-    comb[9 * width + 0] = 3;
-    comb[9 * width + 1] = 2;
-    comb[9 * width + 2] = 2;
-
-    cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count * width, comb, NULL);
+    int* result = (int*) malloc (sizeof(int) * count*count*count);
+    cl_mem result_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count*count*count, result, NULL);
 
     // Загрузка программы в контекст
     cl_program program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource, &kernelSize, NULL);
@@ -96,29 +63,31 @@ int main() {
     cl_kernel kernel = clCreateKernel(program, "find_max", NULL);
 
     // Установка параметров ядра
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer);
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &primes_buffer);
     clSetKernelArg(kernel, 1, sizeof(int), &count);
+    clSetKernelArg(kernel, 2, sizeof(int), &N);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &result_buffer);
 
     // Выполнение программы на устройстве
-    size_t globalWorkSize = count * width;
+    size_t globalWorkSize = count*count*count;
     clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalWorkSize, NULL, 0, NULL, NULL);
 
     // Получение результатов
-    int *resultArray = (int *)malloc(sizeof(int) * count * width);
-    clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, sizeof(int)  * count * width, resultArray, 0, NULL, NULL);
+    clEnqueueReadBuffer(queue, result_buffer, CL_TRUE, 0, sizeof(int)  * count*count*count, result, 0, NULL, NULL);
 
     printf("Original array: \n");
     for (int i = 0; i < count; i++) {
-        printf("%d %d %d\n", comb[i * width + 0], comb[i * width + 1], comb[i * width + 2]);
+        printf("%d ", primes[i]);
     }
 
     printf("\nResult array: \n");
-    for (int i = 0; i < count; i++) {
-        printf("%d\n", resultArray[i * width]);
+    for (int i = 0; i < count*count*count; i++) {
+        printf("%d ", result[i]);
     }
 
     // Освобождение ресурсов
-    clReleaseMemObject(buffer);
+    clReleaseMemObject(primes_buffer);
+    clReleaseMemObject(result_buffer);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
@@ -127,7 +96,8 @@ int main() {
     free(kernelSource);
     free(platforms);
     free(devices);
-    free(resultArray);
+    free(result);
+    free(primes);
 
     return 0;
 }
