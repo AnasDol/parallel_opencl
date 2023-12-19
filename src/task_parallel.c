@@ -1,82 +1,21 @@
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <omp.h>
 #include <CL/cl.h>
+#include <stdio.h>
 
-typedef struct {
-    int max;
-    int a, b, c;
-} Result;
+#define MAX_SOURCE_SIZE (0x100000)
+#define ARRAY_SIZE 10
 
-Result find_max(int* primes, int count, int N) {
-    
-    Result result;
-    result.max = -1;
-    result.a = -1;
-    result.b = -1;
-    result.c = -1;
+int main() {
 
-    if (N < 28) return result;
-
-    for (int i = 0; i < count; i++) {
-        for (int j = 0; j < count; j++) {
-            for (int k = 0; k < count; k++) {
-                int max = primes[i]*primes[i] + primes[j]*primes[j]*primes[j] + primes[k]*primes[k]*primes[k]*primes[k];
-                if (max <= N && max > result.max) {
-                    result.max = max;
-                    result.a = primes[i];
-                    result.b = primes[j];
-                    result.c = primes[k];
-                }
-            }
-        }
-    }
-    return result;
-}
-
-void check_error(cl_int error, const char* message) {
-    if (error != CL_SUCCESS) {
-        fprintf(stderr, "OpenCL Error: %s (error code %d)\n", message, error);
-        exit(EXIT_FAILURE);
-    }
-}
-
-int main(int argc, char* argv[]) {
-
-    int N;
-    printf("N = ", N);
-    if (!(scanf("%d", &N)==1 && N>=1)) {
-        printf("Input error\n");
-        return 0;
+    // Загрузка кода ядра из файла
+    FILE *kernelFile = fopen("test.cl", "r");
+    if (!kernelFile) {
+        fprintf(stderr, "Не удалось открыть файл с кодом ядра.\n");
+        return 1;
     }
 
-    if (N < 28) {
-        printf("Too small number. MIN = 28.");
-        return 0;
-    }
-
-    
-    // OpenCL код
-    const char* program_source = "#pragma OPENCL EXTENSION cl_khr_fp64 : enable\n"
-                                "__kernel void sieve(__global int* numbers, int N) {\n"
-                                "    int gid = get_global_id(0);\n"
-                                "    if (gid >= 2 && gid * gid <= N && numbers[gid] == 1) {\n"
-                                "        for (int j = gid * gid; j <= N; j += gid) {\n"
-                                "            if (numbers[j] == 1) {\n"
-                                "                numbers[j] = 0;\n"
-                                "            }\n"
-                                "        }\n"
-                                "    }\n"
-                                "}\n";
-
-    int* numbers = (int*)malloc(sizeof(int) * (N + 1));
-    
-    for (int i = 0; i <= N; ++i) {
-        numbers[i] = 1;
-    }
+    char *kernelSource = (char *)malloc(MAX_SOURCE_SIZE);
+    size_t kernelSize = fread(kernelSource, 1, MAX_SOURCE_SIZE, kernelFile);
+    fclose(kernelFile);
 
     // Получение доступных платформ
     cl_uint numPlatforms;
@@ -90,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     // Получение доступных устройств
     cl_uint numDevices;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &numDevices);
+    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
 
     cl_device_id *devices = (cl_device_id *)malloc(numDevices * sizeof(cl_device_id));
     clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, numDevices, devices, NULL);
@@ -104,61 +43,91 @@ int main(int argc, char* argv[]) {
     // Создание командной очереди
     cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
 
+    int count = 10;
+    int width = 3;
+    int* comb = (int*) malloc (sizeof(int) * count * width);
+    comb[0 * width + 1] = 2;
+    comb[0 * width + 0] = 2; 
+    comb[0 * width + 2] = 2;
 
+    comb[1 * width + 0] = 2;
+    comb[1 * width + 1] = 2;
+    comb[1 * width + 2] = 3;
 
-    cl_mem numbers_buffer;
-    
-    
+    comb[2 * width + 0] = 2;
+    comb[2 * width + 1] = 2;
+    comb[2 * width + 2] = 5;
 
-    cl_platform_id platform;
-    clGetPlatformIDs(1, &platform, NULL);
+    comb[3 * width + 0] = 2; 
+    comb[3 * width + 1] = 3;
+    comb[3 * width + 2] = 2;
 
-    cl_device_id device;
-    clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU, 1, &device, NULL);
+    comb[4 * width + 0] = 2;
+    comb[4 * width + 1] = 3;
+    comb[4 * width + 2] = 3;
 
-    cl_context context = clCreateContext(NULL, 1, &device, NULL, NULL, NULL);
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, NULL);
-    
-    numbers_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * (N + 1), numbers, NULL);
+    comb[5 * width + 0] = 2;
+    comb[5 * width + 1] = 3;
+    comb[5 * width + 2] = 5;
 
-    cl_program program = clCreateProgramWithSource(context, 1, &program_source, NULL, NULL);
-    check_error(clBuildProgram(program, 1, &device, NULL, NULL, NULL), "Failed to build program");
+    comb[6 * width + 0] = 2; 
+    comb[6 * width + 1] = 5;
+    comb[6 * width + 2] = 2;
 
-    cl_kernel kernel = clCreateKernel(program, "sieve", NULL);
-    check_error(clSetKernelArg(kernel, 0, sizeof(cl_mem), &numbers_buffer), "Failed to set kernel arguments");
+    comb[7 * width + 0] = 2;
+    comb[7 * width + 1] = 5;
+    comb[7 * width + 2] = 3;
 
-    size_t global_work_size = N - 1;
-    check_error(clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_work_size, NULL, 0, NULL, NULL), "Failed to enqueue kernel");
+    comb[8 * width + 0] = 2;
+    comb[8 * width + 1] = 5;
+    comb[8 * width + 2] = 5;
 
-    check_error(clFinish(queue), "Failed to finish execution");
+    comb[9 * width + 0] = 3;
+    comb[9 * width + 1] = 2;
+    comb[9 * width + 2] = 2;
 
-    clEnqueueReadBuffer(queue, numbers_buffer, CL_TRUE, 0, sizeof(int) * (N + 1), numbers, 0, NULL, NULL);
+    cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count * width, comb, NULL);
 
-    int count = 0;
-    int* primes = (int*)malloc(sizeof(int) * (N + 1));
+    // Загрузка программы в контекст
+    cl_program program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource, &kernelSize, NULL);
+    clBuildProgram(program, 1, &device, NULL, NULL, NULL);
 
-    for (int i = 2; i <= N; ++i) {
-        if (numbers[i]) {
-            primes[count++] = i;
-        }
+    // Создание ядра
+    cl_kernel kernel = clCreateKernel(program, "find_max", NULL);
+
+    // Установка параметров ядра
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer);
+    clSetKernelArg(kernel, 1, sizeof(int), &count);
+
+    // Выполнение программы на устройстве
+    size_t globalWorkSize = count * width;
+    clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalWorkSize, NULL, 0, NULL, NULL);
+
+    // Получение результатов
+    int *resultArray = (int *)malloc(sizeof(int) * count * width);
+    clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, sizeof(int)  * count * width, resultArray, 0, NULL, NULL);
+
+    printf("Original array: \n");
+    for (int i = 0; i < count; i++) {
+        printf("%d %d %d\n", comb[i * width + 0], comb[i * width + 1], comb[i * width + 2]);
     }
 
-    printf("count: %d\n", count);
+    printf("\nResult array: \n");
+    for (int i = 0; i < count; i++) {
+        printf("%d\n", resultArray[i * width]);
+    }
 
-    Result result = find_max(primes, count, N);
-
-    printf("\n---------------Output----------------\n");
-    printf("%d^2 + %d^3 + %d^4 = %d\n", result.a, result.b, result.c, result.max);
-
-    // Освобождение ресурсов OpenCL
-    clReleaseMemObject(numbers_buffer);
+    // Освобождение ресурсов
+    clReleaseMemObject(buffer);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
     clReleaseContext(context);
 
-    free(numbers);
-    free(primes);
+    free(kernelSource);
+    free(platforms);
+    free(devices);
+    free(resultArray);
 
     return 0;
 }
