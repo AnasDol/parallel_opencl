@@ -1,5 +1,6 @@
 #include <CL/cl.h>
 #include <stdio.h>
+#include <omp.h>
 
 #define MAX_SOURCE_SIZE (0x100000)
 
@@ -47,6 +48,8 @@ int main(int argc, char* argv[]) {
 
     int* numbers = (int*) malloc (sizeof(int) * N+1);  // будущий массив нулей и единиц
 
+    double start = omp_get_wtime();
+
     int count = sieve_of_eratosthenes(numbers, N);
     printf("count: %d\n", count); // количество простых чисел
 
@@ -73,7 +76,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Загрузка кода ядра из файла
-    FILE *kernelFile = fopen("test.cl", "r");
+    FILE *kernelFile = fopen("find_max.cl", "r");
     if (!kernelFile) {
         fprintf(stderr, "Не удалось открыть файл с кодом ядра.\n");
         return 1;
@@ -135,11 +138,12 @@ int main(int argc, char* argv[]) {
     // Получение результатов
     clEnqueueReadBuffer(queue, result_buffer, CL_TRUE, 0, sizeof(int)  * 4, result, 0, NULL, NULL);
 
+    double finish = omp_get_wtime();
 
     printf("\n---------------Output----------------\n");
 
     printf("%d^2 + %d^3 + %d^4 = %d\n", result[1], result[2], result[3], result[0]);
-    //printf("Time, sec: %lf\n", finish - start);
+    printf("Time, sec: %lf\n", finish - start);
     
     // Освобождение ресурсов
     clReleaseMemObject(primes_buffer);
