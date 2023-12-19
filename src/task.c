@@ -36,24 +36,9 @@ Result find_max(int* primes, int count, int N) {
     return result;
 }
 
-int main(int argc, char* argv[]) {
+int sieve_of_eratosthenes(int* numbers, int N) {
 
-    int N;
-    printf("N = ", N);
-    if (!(scanf("%d", &N)==1 && N>=1)) {
-        printf("Input error\n");
-        return 0;
-    }
-
-    if (N < 28) {
-        printf("Too small number. MIN = 28.");
-        return 0;
-    }
-
-    
-    int* numbers = (int*) malloc (sizeof(int) * N+1);
-
-    double start = omp_get_wtime();
+    if (N < 28) return -1;
 
     numbers[0] = 0;
     numbers[1] = 0;
@@ -75,17 +60,39 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    printf("count: %d\n", count);
+    return count;
 
-    int* primes = (int*) malloc (sizeof(int) * count);
+}
+
+int main(int argc, char* argv[]) {
+
+    int N;
+    printf("N = ", N);
+    if (!(scanf("%d", &N)==1 && N>=1)) {
+        printf("Input error\n");
+        return 0;
+    }
+
+    if (N < 28) {
+        printf("Too small number. MIN = 28.");
+        return 0;
+    }
+
+    int* numbers = (int*) malloc (sizeof(int) * N+1);  // будущий массив нулей и единиц
+
+    double start = omp_get_wtime();
+
+    int count = sieve_of_eratosthenes(numbers, N);
+    printf("count: %d\n", count); // количество простых чисел
+
+    int* primes = (int*) malloc (sizeof(int) * count); // массив простых чисел
 
     for (int i = 0, j = 2; i < count, j < N + 1; j++) {
-        
+        // если число простое, записываем в массив
         if (numbers[j]) {
             primes[i] = j;
             i++;
         }
-        
     }
 
     if (count <= 30) {
