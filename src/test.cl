@@ -1,4 +1,4 @@
-__kernel void find_max(__global int* primes, int count, int N, __global int* result_array) {
+__kernel void find_max(__global int* primes, int count, int N, __global int* sum_array, __global int* result) {
 
     int gid = get_global_id(0);
 
@@ -15,7 +15,19 @@ __kernel void find_max(__global int* primes, int count, int N, __global int* res
             + primes[index2]*primes[index2]*primes[index2] 
             + primes[index3]*primes[index3]*primes[index3]*primes[index3];
 
-        result_array[gid] = sum;
+        sum_array[gid] = sum;
+
+        if (sum > result[0] && sum < N) {
+
+            atomic_max(&result[0], sum);
+
+            if (sum == result[0]) {
+                atomic_xchg(&result[1], primes[index1]);
+                atomic_xchg(&result[2], primes[index2]);
+                atomic_xchg(&result[3], primes[index3]);
+            }
+
+        }
 
     }
 

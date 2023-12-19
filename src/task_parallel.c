@@ -52,8 +52,14 @@ int main() {
     primes[3] = 7;
     cl_mem primes_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count, primes, NULL);
 
-    int* result = (int*) malloc (sizeof(int) * count*count*count);
-    cl_mem result_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count*count*count, result, NULL);
+    int* sum = (int*) malloc (sizeof(int) * count*count*count);
+    cl_mem sum_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * count*count*count, sum, NULL);
+
+    int result[4];
+    for (int i = 0; i < 4; i++) {
+        result[i] = -1;
+    }
+    cl_mem result_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * 4, result, NULL);
 
     // Загрузка программы в контекст
     cl_program program = clCreateProgramWithSource(context, 1, (const char **)&kernelSource, &kernelSize, NULL);
@@ -66,28 +72,37 @@ int main() {
     clSetKernelArg(kernel, 0, sizeof(cl_mem), &primes_buffer);
     clSetKernelArg(kernel, 1, sizeof(int), &count);
     clSetKernelArg(kernel, 2, sizeof(int), &N);
-    clSetKernelArg(kernel, 3, sizeof(cl_mem), &result_buffer);
+    clSetKernelArg(kernel, 3, sizeof(cl_mem), &sum_buffer);
+    clSetKernelArg(kernel, 4, sizeof(cl_mem), &result_buffer);
 
     // Выполнение программы на устройстве
     size_t globalWorkSize = count*count*count;
     clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalWorkSize, NULL, 0, NULL, NULL);
 
     // Получение результатов
-    clEnqueueReadBuffer(queue, result_buffer, CL_TRUE, 0, sizeof(int)  * count*count*count, result, 0, NULL, NULL);
+    clEnqueueReadBuffer(queue, sum_buffer, CL_TRUE, 0, sizeof(int)  * count*count*count, sum, 0, NULL, NULL);
+    clEnqueueReadBuffer(queue, result_buffer, CL_TRUE, 0, sizeof(int)  * 4, result, 0, NULL, NULL);
 
     printf("Original array: \n");
     for (int i = 0; i < count; i++) {
         printf("%d ", primes[i]);
     }
+    printf("\n\n");
 
-    printf("\nResult array: \n");
+    printf("sum array: \n");
     for (int i = 0; i < count*count*count; i++) {
+        printf("%d ", sum[i]);
+    }
+    printf("\n\n");
+
+    printf("result array: \n");
+    for (int i = 0; i < 4; i++) {
         printf("%d ", result[i]);
     }
 
     // Освобождение ресурсов
     clReleaseMemObject(primes_buffer);
-    clReleaseMemObject(result_buffer);
+    clReleaseMemObject(sum_buffer);
     clReleaseKernel(kernel);
     clReleaseProgram(program);
     clReleaseCommandQueue(queue);
@@ -96,7 +111,7 @@ int main() {
     free(kernelSource);
     free(platforms);
     free(devices);
-    free(result);
+    free(sum);
     free(primes);
 
     return 0;
